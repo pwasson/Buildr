@@ -43,6 +43,8 @@ abstract class AbstractBuilderManager implements BuilderManager {
 	protected final Material replace_mat;
 	protected final List<Block> positions = new ArrayList<Block>();
 	protected boolean coordinate1placed = false;
+    /** was this command undone? */
+    protected boolean undone = false;
 
     public AbstractBuilderManager(String inBuildingName,
             Buildr inPlugin,
@@ -99,6 +101,17 @@ abstract class AbstractBuilderManager implements BuilderManager {
 
 
     @Override
+    public BuilderManager retry() {
+        if (positions.size() < 1) {
+            getBuildingCreator().sendMessage("No taps to retry.");
+        } else {
+            positions.remove(positions.size() - 1);
+        }
+        return this;
+    }
+
+
+    @Override
     public String getBuildingName() {
         return buildingName;
     }
@@ -139,5 +152,17 @@ abstract class AbstractBuilderManager implements BuilderManager {
     @Override
     public String getNextPositionMessage() {
         return "Now right-click on block 2 (again with a stick) to continue";
+    }
+
+
+    @Override
+    public boolean wasUndone() {
+        return undone;
+    }
+
+
+    @Override
+    public void setUndone(boolean undone) {
+        this.undone = undone;
     }
 }

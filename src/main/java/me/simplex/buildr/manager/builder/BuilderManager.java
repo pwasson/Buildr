@@ -56,6 +56,12 @@ public interface BuilderManager {
      * @return whether coordinates added so far are valid.
      */
 	public boolean checkCoordinates();
+
+    /**
+     * removes the last coordinate added; if none have been added so far, sends a message to the
+     * player complaining about nothing to retry.
+     */
+    public BuilderManager retry();
     
     /**
      * @return the name of the structure being built, e.g. "Wall", "Sphere", etc.
@@ -86,4 +92,10 @@ public interface BuilderManager {
      * was invalid. This should be just the reason; a colorized "ERROR" will be prefixed.
      */
 	public String getCoordinateCheckFailed();
+
+
+    void setUndone(boolean undone);
+
+
+    boolean wasUndone();
 }

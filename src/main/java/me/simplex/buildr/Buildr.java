@@ -20,6 +20,7 @@ package me.simplex.buildr;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.ListIterator;
 import java.util.logging.Logger;
 
 import me.simplex.buildr.listener.Buildr_Listener_Block;
@@ -51,6 +52,8 @@ import me.simplex.buildr.manager.commands.SlopeCommand;
 import me.simplex.buildr.runnable.Buildr_Runnable_TimeChecker;
 import me.simplex.buildr.manager.builder.BuilderManager;
 import me.simplex.buildr.manager.commands.CloneCommand;
+import me.simplex.buildr.manager.commands.RetryCommand;
+import me.simplex.buildr.manager.commands.TileCommand;
 
 import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
@@ -101,8 +104,10 @@ public class Buildr extends JavaPlugin {
 	  private Buildr_Manager_Command_Sphere cmdSphere;
 	  private Buildr_Manager_Command_Wall cmdWall;
 	  private Buildr_Manager_Command_Wallx cmdWallx;
+      private RetryCommand retryCmd;
 	  private SlopeCommand cmdSlope;
       private CloneCommand cmdClone;
+      private TileCommand cmdTile;
 	  private Buildr_Manager_Command_Wool cmdWool;
 
 	  private String pluginDirectory;
@@ -114,6 +119,8 @@ public class Buildr extends JavaPlugin {
 	  private ArrayList<World> worldBuildAllowed;
 	  private ArrayList<Player> playerBuildMode;
 	  private ArrayList<BuilderManager> startedBuildings;
+	  private ArrayList<BuilderManager> lastBuildings;
+
 	  
 	  private LinkedList<Player> playerCuttingTree;
 
@@ -130,7 +137,7 @@ public class Buildr extends JavaPlugin {
 		
 		pluginDirectory 	=  "plugins/Buildr";
 		version 			= getDescription().getVersion();
-		version_cfg			= "0.8.1";
+		version_cfg			= "0.8.2";
 		prefix 				= "[Buildr] ";
 		
 		cfgManager 			= new Buildr_Manager_Configuration(this);
@@ -159,14 +166,17 @@ public class Buildr extends JavaPlugin {
 		cmdSphere 			= new Buildr_Manager_Command_Sphere(this);
 		cmdWall 			= new Buildr_Manager_Command_Wall(this);
 		cmdWallx 			= new Buildr_Manager_Command_Wallx(this);
+        retryCmd            = new RetryCommand(this);
         cmdSlope            = new SlopeCommand(this);
         cmdClone            = new CloneCommand(this);
+        cmdTile             = new TileCommand(this);
 		cmdWool 			= new Buildr_Manager_Command_Wool(this);
 
 		worldBuildMode 		= new ArrayList<World>();
 		worldBuildAllowed 	= new ArrayList<World>();
 		playerBuildMode 	= new ArrayList<Player>();
 		startedBuildings 	= new ArrayList<BuilderManager>();
+		lastBuildings    	= new ArrayList<BuilderManager>();// Id' rather use a Map<Player,BuilderManager>. Does Player support equals() properly?
 		playerCuttingTree 	= new LinkedList<Player>();
 	
 		if (cfgManager.checkDirectory()) {
@@ -217,8 +227,10 @@ public class Buildr extends JavaPlugin {
 		getCommand("undo").setExecutor(cmdUndo);
 		getCommand("wall").setExecutor(cmdWall);
 		getCommand("wallx").setExecutor(cmdWallx);
+        getCommand("bretry").setExecutor(retryCmd);
         getCommand("slope").setExecutor(cmdSlope);
         getCommand("bclone").setExecutor(cmdClone);
+        getCommand("btile").setExecutor(cmdTile);
 		getCommand("wool").setExecutor(cmdWool);
 		log("command executors set..");
 		
@@ -326,6 +338,16 @@ public class Buildr extends JavaPlugin {
 	}
 
 
+	public BuilderManager giveLastManager(Player player){
+		for (BuilderManager builder : lastBuildings) {
+			if (builder.getBuildingCreator() == player) {
+				return builder;
+			}
+		}
+		return null;
+	}
+
+
 	public void removeStartedBuilding(Player player){
 		for (BuilderManager wallbuilder : startedBuildings) {
 			if (wallbuilder.getBuildingCreator() == player) {
@@ -334,6 +356,36 @@ public class Buildr extends JavaPlugin {
 			}
 		}
 	}
+
+
+    public void addStartedBuilding(BuilderManager mgr) {
+        removeStartedBuilding(mgr.getBuildingCreator());
+        startedBuildings.add(mgr);
+    }
+
+
+    public void putLastBuilding(Player player,
+            BuilderManager manager) {
+        ListIterator<BuilderManager> it = lastBuildings.listIterator();
+        while (it.hasNext()) {
+            BuilderManager mgr = it.next();
+			if (mgr.getBuildingCreator() == player) {
+                it.remove();
+                break;
+            }
+        }
+        lastBuildings.add(manager);
+    }
+
+
+    public boolean checkPlayerHasLastBuilding(Player player) {
+        for (BuilderManager wallbuilder : lastBuildings) {
+            if (wallbuilder.getBuildingCreator() == player) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 
 	public boolean checkPlayerItemInHandIsPickaxe(Player player){
@@ -373,7 +425,9 @@ public class Buildr extends JavaPlugin {
         player.sendMessage(wallbuilder.getLastPositionMessage());
         if (wallbuilder.checkCoordinates()) {
             if (wallbuilder.gotAllCoordinates()) {
+                putLastBuilding(player, wallbuilder);
                 player.sendMessage(wallbuilder.getBuildingMessage());
+                wallbuilder.setUndone(false);
                 wallbuilder.startBuild();
                 removeStartedBuilding(player);
             } else {

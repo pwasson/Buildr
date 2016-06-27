@@ -1,6 +1,6 @@
 /*
  * Copyright 2012 s1mpl3x
- * Copyright 2015 pdwasson
+ * Copyright 2015-2016 pdwasson
  *
  * This file is part of Buildr.
  *
@@ -85,6 +85,13 @@ public class Cuboid {
         return (overlaps(lowCorner.getX(), highCorner.getX(), other.lowCorner.getX(), other.highCorner.getX())
                 && overlaps(lowCorner.getY(), highCorner.getY(), other.lowCorner.getY(), other.highCorner.getY())
                 && overlaps(lowCorner.getZ(), highCorner.getZ(), other.lowCorner.getZ(), other.highCorner.getZ()));
+    }
+
+
+    public boolean contains(final Location loc) {
+        return (overlaps(lowCorner.getX(), highCorner.getX(), loc.getBlockX(), loc.getBlockX())
+                && overlaps(lowCorner.getY(), highCorner.getY(), loc.getBlockY(), loc.getBlockY())
+                && overlaps(lowCorner.getZ(), highCorner.getZ(), loc.getBlockZ(), loc.getBlockZ()));
     }
 
 

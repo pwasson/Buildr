@@ -1,6 +1,5 @@
 /*
- * Copyright 2015 s1mpl3x
- * Copyright 2015-2016 pdwasson
+ * Copyright 2016 pdwasson
  *
  * This file is part of Buildr.
  *
@@ -22,6 +21,7 @@ package me.simplex.buildr.runnable.builder;
 import java.util.HashMap;
 import java.util.Map;
 import me.simplex.buildr.Buildr;
+import me.simplex.buildr.manager.builder.TileBuilderManager.TileMode;
 import me.simplex.buildr.util.BlockLocation;
 import me.simplex.buildr.util.Buildr_Container_UndoBlock;
 import me.simplex.buildr.util.Cuboid;
@@ -46,59 +46,73 @@ import org.bukkit.material.Stairs;
  *
  * @author pwasson
  */
-public class CloneBuilderTask extends AbstractCloningBuilderTask {
+public class TileBuilderTask extends AbstractCloningBuilderTask {
+    private final int nx, ny, nz;
     private final Block position3;
-    private final int rotation;
 
 
-    public CloneBuilderTask(Buildr plugin,
+    public TileBuilderTask(Buildr plugin,
             Player player,
             Block position1,
             Block position2,
-            Block position3,
-            int inRotation) {
+            Block inPosition3,
+            int inNumXTiles,
+            int inNumYTiles,
+            int inNumZTiles) {
         super(plugin.checkPermission(player, "buildr.feature.break_bedrock"));
         this.plugin = plugin;
         this.player = player;
         this.position1 = position1;
         this.position2 = position2;
-        this.position3 = position3;
-        this.rotation = inRotation;
+        this.position3 = inPosition3;
+        this.nx = inNumXTiles;
+        this.ny = inNumYTiles;
+        this.nz = inNumZTiles;
     }
 
 
     @Override
     public void run() {
-        int height = Math.abs(position1.getY() - position2.getY()) + 1;
-        int width = Math.abs(position1.getX() - position2.getX()) + 1;
-        int depth = Math.abs(position1.getZ() - position2.getZ()) + 1;
-
         Cuboid source = new Cuboid(position1.getLocation(), position2.getLocation());
-        /* if we're rotating, we have to adjust the destination coordinates accordingly, i.e. swap
-         width and depth if angle is 90 or 270 */
-        boolean quarterRot = (rotation % 180 != 0);
-        int destWidth = quarterRot ? depth : width;
-        int destDepth = quarterRot ? width : depth;
-        BlockLocation loc4 = new BlockLocation(position3.getLocation().getBlockX() + destWidth - 1,
-                position3.getLocation().getBlockY() + height - 1,
-                position3.getLocation().getBlockZ() + destDepth - 1);
-        Cuboid dest = new Cuboid(new BlockLocation(position3.getLocation()), loc4);
+        int tileHeight = Math.abs(position1.getY() - position2.getY()) + 1;
+        int tileWidth = Math.abs(position1.getX() - position2.getX()) + 1;
+        int tileDepth = Math.abs(position1.getZ() - position2.getZ()) + 1;
+
+        int dx = (position3.getX() > source.getHighCorner().getX()) ? +1 : -1;
+        int dy = (position3.getY() > source.getHighCorner().getY()) ? +1 : -1;
+        int dz = (position3.getZ() > source.getHighCorner().getZ()) ? +1 : -1;
+plugin.getLogger().info(String.format("tileWidth: %d, tileHeight: %d, tileDepth: %d, dx: %d, dy: %d, dz: %d",
+        tileWidth, tileHeight, tileDepth, dx, dy, dz));
 
         Map<Block, Buildr_Container_UndoBlock> undoBlocks = new HashMap<Block, Buildr_Container_UndoBlock>();
         World theWorld = position1.getWorld();
-// FIXME doors still drop as items. Don't know why yet.
-        /*
-        We need to do this in two passes. If we clone an attachable block, such as a torch or ladder,
-        before the block it's attached to, it will drop as an item as soon as it's placed. So clone the
-        non-attachable blocks in the first pass (to provide surfaces), then only the attachable
-        blocks in the second pass.
-        */
-        cloneLoop(source, dest, rotation, theWorld, undoBlocks, false);
-        cloneLoop(source, dest, rotation, theWorld, undoBlocks, true);
+
+        for (int ix = 0; ix < nx; ++ix) {
+            for (int iy = 0; iy < ny; ++iy) {
+                for (int iz = 0; iz < nz; ++iz) {
+                    if (ix == 0 && iy == 0 && iz == 0) continue;
+
+                    int lowX = source.getLowCorner().getX() + (ix * tileWidth * dx);
+                    int lowY = source.getLowCorner().getY() + (iy * tileHeight * dy);
+                    int lowZ = source.getLowCorner().getZ() + (iz * tileDepth * dz);
+plugin.getLogger().info(String.format("ix: %d, iy: %d, iz: %d, lowX: %d, lowY: %d, lowZ: %d",
+        ix, iy, iz, lowX, lowY, lowZ));
+
+                    BlockLocation loc3 = new BlockLocation(lowX, lowY, lowZ);
+                    BlockLocation loc4 = new BlockLocation(lowX + tileWidth - 1, lowY + tileHeight - 1,
+                            lowZ + tileDepth - 1);
+
+                    Cuboid dest = new Cuboid(loc3, loc4);
+
+                    cloneLoop(source, dest, 0, theWorld, undoBlocks, false);
+                    cloneLoop(source, dest, 0, theWorld, undoBlocks, true);
+                }
+            }
+        }
 
         plugin.getUndoList().addToStack(undoBlocks, player);
         player.sendMessage(String.format("Done! Placed %d blocks", undoBlocks.size()));
-        plugin.log(String.format("%s cloned a cuboid: %d blocks affected.", player.getName(),
+        plugin.log(String.format("%s tiled a cuboid: %d blocks affected.", player.getName(),
                 undoBlocks.size()));
     }
 }

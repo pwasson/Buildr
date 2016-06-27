@@ -53,7 +53,7 @@ public class Buildr_Manager_Command_Halfsphere extends StdArgBuilderCommand {
         if (null != replace_mat) {
             replace_info = "Replace: " + ChatColor.BLUE + replace_mat;
         }
-        plugin.getStartedBuildings().add(new SphereBuilderManager((Player) sender, material,
+        plugin.addStartedBuilding(new SphereBuilderManager((Player) sender, material,
                 replace_mat, hollow, true, plugin, material_data));
         String buildinfo = "Started new half sphere. Info: Blocktype: " + ChatColor.BLUE + material.toString() + ChatColor.WHITE + " (ID:" + ChatColor.BLUE + material.
                 getId() + ChatColor.WHITE + ") " + replace_info + ChatColor.WHITE + " Hollow: " + ChatColor.BLUE + hollow;

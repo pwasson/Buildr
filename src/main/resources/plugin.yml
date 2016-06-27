@@ -20,7 +20,7 @@ commands:
            /<command>
            Example: /<command>
   allowbuild:
-    description: Unlocks/Locks the activation of the buildmode in the world you're in. Kicks all users out of buildmode on lock. Only has a Effect if BUILDMODE_BUILDMODE_REQUIRE_ALLOW is true
+    description: Unlocks/Locks the activation of the buildmode in the world you're in. Kicks all users out of buildmode on lock. Only has an effect if BUILDMODE_BUILDMODE_REQUIRE_ALLOW is true
     aliases: [ab,abm,allowbm]
     usage: |
            /<command>
@@ -65,6 +65,11 @@ commands:
       aliases: [bcl]
       usage: |
             /<command> {rAngle (rotation angle, multiple of 90, clockwise)}
+  btile:
+      description: Starts cloning a cuboid repeatedly to fill an area
+      aliases: [btl]
+      usage: |
+            /<command> {roundup | rounddown}
   airfloor:
     description: places a block (area) of material x y blocks above the player
     aliases: [af,airf]
@@ -87,6 +92,11 @@ commands:
     usage: |
            /<command> 
            Example: /<command> 
+  bretry:
+    description: Removes the last tap for a command in-progress, or undoes and restarts the last command awaiting the final tap.
+    usage: |
+           /<command>
+           Example: /<command>
   gv:
     description: gives a Stack of items to the player
     aliases: [gv,buildr_gv]
@@ -137,8 +147,10 @@ permissions:
             buildr.cmd.airfloor: true
             buildr.cmd.slope: true
             buildr.cmd.clone: true
+            buildr.cmd.tile: true
             buildr.cmd.top: true
             buildr.cmd.undo: true
+            buildr.cmd.bretry: true
             buildr.cmd.gv: true
             buildr.cmd.gvx: true
             buildr.cmd.clearinv: true

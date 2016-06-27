@@ -55,7 +55,7 @@ public class Buildr_Manager_Command_Cylinder extends StdArgBuilderCommand {
             replace_info = "Replace: " + ChatColor.BLUE + replace_mat;
         }
 
-        plugin.getStartedBuildings().add(new CylinderBuilderManager((Player) sender, material,
+        plugin.addStartedBuilding(new CylinderBuilderManager((Player) sender, material,
                 replace_mat, hollow, plugin, material_data));
         String buildinfo = "Started new cylinder. Info: Blocktype: " + ChatColor.BLUE + material.toString() + ChatColor.WHITE + " (ID:" + ChatColor.BLUE + material.
                 getId() + ChatColor.WHITE + ") " + replace_info + ChatColor.WHITE + " Hollow: " + ChatColor.BLUE + hollow;

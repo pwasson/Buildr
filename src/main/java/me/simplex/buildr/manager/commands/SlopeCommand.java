@@ -125,7 +125,7 @@ public class SlopeCommand extends AbstractBuilderCommand {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.WARNING, "previous started building aborted");
         }
 
-        plugin.getStartedBuildings().add(
+        plugin.addStartedBuilding(
                 new SlopeBuilderManager((Player) sender,
                         buildMaterial.getMaterial(),
                         (null == replace_mat) ? null : replace_mat.getMaterial(),

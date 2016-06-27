@@ -49,7 +49,7 @@ public class Buildr_Manager_Command_Wallx extends StdArgBuilderCommand {
             plugin.removeStartedBuilding((Player) sender);
             sendTo(sender, MsgType.WARNING, "previous started building aborted");
         }
-        plugin.getStartedBuildings().add(new WallxBuilderManager((Player) sender, material,
+        plugin.addStartedBuilding(new WallxBuilderManager((Player) sender, material,
                 replace_mat, plugin, material_data));
         String replace_info = "";
         if (null != replace_mat) {

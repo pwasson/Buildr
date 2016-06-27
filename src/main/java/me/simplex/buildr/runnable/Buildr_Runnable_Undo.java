@@ -21,46 +21,54 @@ package me.simplex.buildr.runnable;
 import java.util.Map;
 
 import me.simplex.buildr.Buildr;
+import me.simplex.buildr.manager.builder.BuilderManager;
 import me.simplex.buildr.util.Buildr_Container_UndoBlock;
 
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.material.Attachable;
 
+
 public class Buildr_Runnable_Undo implements Runnable {
-	private final Player player;
-	private final Map<Block, Buildr_Container_UndoBlock> undos;
-	private final Buildr plugin;
-	
-public Buildr_Runnable_Undo(Player player, Buildr plugin) {
-	this.player = player;
-	this.plugin = plugin;
-	this.undos = plugin.getUndoList().getAndDeleteFromStack(player);
-}
-	@Override
-	public void run() {
-		if (undos != null) {
+    private final Player player;
+    private final Map<Block, Buildr_Container_UndoBlock> undos;
+    private final Buildr plugin;
+
+
+    public Buildr_Runnable_Undo(Player player,
+            Buildr plugin) {
+        this.player = player;
+        this.plugin = plugin;
+        this.undos = plugin.getUndoList().getAndDeleteFromStack(player);
+        BuilderManager mgr = plugin.giveLastManager(player);
+        if (null != mgr)
+            mgr.setUndone(true);
+    }
+
+
+    @Override
+    public void run() {
+        if (undos != null) {
             // first undo attachables, then non-attachables.
             // FIXME this doesn't work to prevent drops from items being removed.
-			for (Block block : undos.keySet()) {
+            for (Block block : undos.keySet()) {
                 boolean isAttachable = Attachable.class.isAssignableFrom(block.getType().getData());
                 if (isAttachable) {
                     block.setType(undos.get(block).getMaterial());
                     block.setData(undos.get(block).getMaterialData());
                 }
-			}
-			for (Block block : undos.keySet()) {
+            }
+            for (Block block : undos.keySet()) {
                 boolean isAttachable = Attachable.class.isAssignableFrom(block.getType().getData());
                 if (!isAttachable) {
                     block.setType(undos.get(block).getMaterial());
                     block.setData(undos.get(block).getMaterialData());
                 }
-			}
-			plugin.log(player.getName()+" used /undo: "+undos.size()+" blocks affected");
-			player.sendMessage(undos.size()+" blocks restored");
-		}
-		else {
-			player.sendMessage("Nothing to undo");
-		}
-	}
+            }
+            plugin.log(player.getName() + " used /undo: " + undos.size() + " blocks affected");
+            player.sendMessage(undos.size() + " blocks restored");
+        } else {
+            player.sendMessage("Nothing to undo");
+        }
+    }
 }

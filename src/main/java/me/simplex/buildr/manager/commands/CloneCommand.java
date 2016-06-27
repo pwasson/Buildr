@@ -97,7 +97,7 @@ public class CloneCommand extends AbstractBuilderCommand {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.WARNING, "previous started building aborted");
         }
 
-        plugin.getStartedBuildings().add(
+        plugin.addStartedBuilding(
                 new CloneBuilderManager((Player) sender, plugin, rotationAngle));
 
         StringBuilder sb = new StringBuilder("Started new Clone");
