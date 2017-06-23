@@ -1,6 +1,6 @@
 /*
  * Copyright 2015 s1mpl3x
- * Copyright 2015-2016 pdwasson
+ * Copyright 2015-2017 pdwasson
  *
  * This file is part of Buildr.
  *
@@ -24,22 +24,11 @@ import java.util.Map;
 import me.simplex.buildr.Buildr;
 import me.simplex.buildr.util.BlockLocation;
 import me.simplex.buildr.util.Buildr_Container_UndoBlock;
+import me.simplex.buildr.util.CloneOptions;
 import me.simplex.buildr.util.Cuboid;
-import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.CommandBlock;
-import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.InventoryHolder;
-import org.bukkit.material.Attachable;
-import org.bukkit.material.Directional;
-import org.bukkit.material.Door;
-import org.bukkit.material.Ladder;
-import org.bukkit.material.MaterialData;
-import org.bukkit.material.Stairs;
 
 
 /**
@@ -48,6 +37,7 @@ import org.bukkit.material.Stairs;
  */
 public class CloneBuilderTask extends AbstractCloningBuilderTask {
     private final Block position3;
+    private final CloneOptions cloneOpts;
     private final int rotation;
 
 
@@ -56,6 +46,7 @@ public class CloneBuilderTask extends AbstractCloningBuilderTask {
             Block position1,
             Block position2,
             Block position3,
+            CloneOptions cloneOpts,
             int inRotation) {
         super(plugin.checkPermission(player, "buildr.feature.break_bedrock"));
         this.plugin = plugin;
@@ -63,6 +54,7 @@ public class CloneBuilderTask extends AbstractCloningBuilderTask {
         this.position1 = position1;
         this.position2 = position2;
         this.position3 = position3;
+        this.cloneOpts = cloneOpts;
         this.rotation = inRotation;
     }
 
@@ -86,15 +78,15 @@ public class CloneBuilderTask extends AbstractCloningBuilderTask {
 
         Map<Block, Buildr_Container_UndoBlock> undoBlocks = new HashMap<Block, Buildr_Container_UndoBlock>();
         World theWorld = position1.getWorld();
-// FIXME doors still drop as items. Don't know why yet.
+// FIXME doors and beds still drop as items. Don't know why yet.
         /*
         We need to do this in two passes. If we clone an attachable block, such as a torch or ladder,
         before the block it's attached to, it will drop as an item as soon as it's placed. So clone the
         non-attachable blocks in the first pass (to provide surfaces), then only the attachable
         blocks in the second pass.
         */
-        cloneLoop(source, dest, rotation, theWorld, undoBlocks, false);
-        cloneLoop(source, dest, rotation, theWorld, undoBlocks, true);
+        cloneLoop(source, dest, theWorld, undoBlocks, cloneOpts, rotation, false, false, false);
+        cloneLoop(source, dest, theWorld, undoBlocks, cloneOpts, rotation, false, false, true);
 
         plugin.getUndoList().addToStack(undoBlocks, player);
         player.sendMessage(String.format("Done! Placed %d blocks", undoBlocks.size()));

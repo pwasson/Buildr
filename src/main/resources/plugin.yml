@@ -64,17 +64,17 @@ commands:
       description: Starts cloning a cuboid
       aliases: [bcl]
       usage: |
-            /<command> {rAngle (rotation angle, multiple of 90, clockwise)}
+            /<command> {rotate|rot <rotation angle, multiple of 90, clockwise>} {replace | mask | filter <material>} {r<material>}
   btile:
       description: Starts cloning a cuboid repeatedly to fill an area
       aliases: [btl]
       usage: |
-            /<command> {roundup | rounddown}
+            /<command> {roundup | rounddown | fit} {flipx} {flipz} {lockx} {locky} {lockz} {replace | mask | filter <material>} {r<material>}
   airfloor:
     description: places a block (area) of material x y blocks above the player
     aliases: [af,airf]
     usage: |
-           /<command> <material #> <height #>
+           /<command> <material #> <height #> {<size #>}
            Example: /<command> 4 20 3
   wool:
     description: gives a Stack of wool in the specified color to the player

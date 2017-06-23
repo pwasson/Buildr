@@ -19,9 +19,14 @@
  */
 package me.simplex.buildr.manager.commands;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import me.simplex.buildr.Buildr;
 import me.simplex.buildr.manager.builder.CloneBuilderManager;
 import static me.simplex.buildr.manager.commands.Buildr_Manager_Command_Super.sendTo;
+import me.simplex.buildr.util.CloneOptions;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -30,7 +35,7 @@ import org.bukkit.entity.Player;
 
 public class CloneCommand extends AbstractBuilderCommand {
     public CloneCommand(Buildr plugin) {
-        super(plugin, "bclone", "buildr.cmd.clone", 1, 0);
+        super(plugin, "bclone", "buildr.cmd.clone", 6, 0);
     }
 /* TODO support options from built-in command:
     "masked" (do not copy air blocks)
@@ -45,38 +50,42 @@ public class CloneCommand extends AbstractBuilderCommand {
             String[] args) {
         try {
             // the only argument we have is an optional rotation
+            // TODO call CloneOptions parseCloneOptions(List<String> ioList) throws BadFormatException
+            // to get maskMode and replace material
+            // CONFLICT: parseCloneOptions wants "r" to prefix the replace material, which IS consistent
+            // with most of the other commands, so we'll have to change Rotate to be e.g. "rotate90"
+            // or "rotate 90" (accepting "rot" as short for rotate).
             int rotationAngle = 0;
+            CloneOptions cloneOpts = null;
 
-            if (args.length > 0) {
-                String arg = args[0];
-                if (null != arg) {
-                    if (org.bukkit.util.StringUtil.startsWithIgnoreCase(arg, "R")) {
-                        String angleString = arg.substring(1);
+            if (null != args && args.length > 0) {
+                // the List from Arrays.asList doesn't support Iterator.remove, so copy it.
+                List<String> argsList = new ArrayList<String>(Arrays.asList(args));
+                cloneOpts = parseCloneOptions(argsList);// removes args it recognizes
+
+                Iterator<String> argIt = argsList.iterator();
+                while (argIt.hasNext()) {
+                    String arg = argIt.next().toLowerCase();
+                    if ("rotate".equals(arg) || "rot".equals("arg")) {
+                        if (!argIt.hasNext())
+                            throw new BadFormatException("Rotate option requires a rotation angle.");
+                        arg = argIt.next().toLowerCase();
                         try {
-                            rotationAngle = Integer.parseInt(angleString);
-                            if ((rotationAngle % 90) != 0) {
-                                sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
-                                        "invalid rotation angle; must be a multiple of 90.");
-                                return true;
-                            }
+                            rotationAngle = Integer.parseInt(arg);
+                            if ((rotationAngle % 90) != 0)
+                                throw new BadFormatException("Invalid rotation angle; must be a multiple of 90.");
                             // normalize the rotation angle to > 0, < 360.
                             rotationAngle = rotationAngle % 360;
                             while (rotationAngle < 0)
                                 rotationAngle += 360;
                         } catch (NumberFormatException numX) {
-                            sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
-                                    "invalid rotation angle; must be a multiple of 90.");
-                            return true;
+                            throw new BadFormatException("Invalid rotation angle; must be a multiple of 90.");
                         }
-                    } else {
-                        sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
-                                "invalid argument; r<angle> expected, e.g. \"r90\".");
-                        return true;
                     }
                 }
             }
 
-            cmd_clone(sender, rotationAngle);
+            cmd_clone(sender, cloneOpts, rotationAngle);
             return true;
         } catch (BadFormatException formatX) {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
@@ -87,6 +96,7 @@ public class CloneCommand extends AbstractBuilderCommand {
 
 
     public void cmd_clone(CommandSender sender,
+            CloneOptions cloneOpts,
             int rotationAngle) {
         if (!plugin.getConfigValue("FEATURE_BUILDER_CLONE")) {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.INFO, "feature not enabled");
@@ -98,7 +108,7 @@ public class CloneCommand extends AbstractBuilderCommand {
         }
 
         plugin.addStartedBuilding(
-                new CloneBuilderManager((Player) sender, plugin, rotationAngle));
+                new CloneBuilderManager((Player) sender, plugin, cloneOpts, rotationAngle));
 
         StringBuilder sb = new StringBuilder("Started new Clone");
         if (rotationAngle != 0) {

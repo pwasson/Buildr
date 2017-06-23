@@ -19,8 +19,12 @@
  */
 package me.simplex.buildr.manager.commands;
 
+import java.util.List;
+import java.util.ListIterator;
 import me.simplex.buildr.util.MaterialAndData;
 import me.simplex.buildr.Buildr;
+import me.simplex.buildr.runnable.builder.AbstractCloningBuilderTask;
+import me.simplex.buildr.util.CloneOptions;
 
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -199,5 +203,55 @@ public abstract class Buildr_Manager_Command_Super implements CommandExecutor {
             throw new BadMaterialException("invalid replace blocktype");
 
         return new CommonArguments(buildMaterial, replaceMaterial, hollow);
+    }
+
+    /**
+     * parses common cloning options out of an argument list and removes those argument from the list so
+     * as not to confuse the caller.
+     * @param ioList the list of available command arguments; recognized arguments will be removed from this.
+     * @return a CloneOptions object to pass to
+     * {@link AbstractCloningBuilderTask#cloneLoop(me.simplex.buildr.util.Cuboid, me.simplex.buildr.util.Cuboid, int, org.bukkit.World, java.util.Map, boolean, boolean, boolean)  cloneLoop}.
+     * @throws BadFormatException
+     */
+    protected CloneOptions parseCloneOptions(List<String> ioList) throws BadFormatException {
+        CloneOptions.CloneMode cloneMode = CloneOptions.CloneMode.NORMAL;
+        // CloneMode isn't supported yet so we don't bother to parse it.
+        CloneOptions.MaskMode maskMode = null;
+        MaterialAndData filterMaterial = null;
+        MaterialAndData replaceMaterial = null;
+
+        ListIterator<String> it = ioList.listIterator();
+        while (it.hasNext()) {
+            String arg = it.next().toLowerCase();
+            if ("replace".equals(arg)) {
+                maskMode = CloneOptions.MaskMode.REPLACE;
+                it.remove();
+            } else if ("mask".equals(arg)) {
+                maskMode = CloneOptions.MaskMode.MASK;
+                it.remove();
+            } else if ("filter".equals(arg)) {
+                maskMode = CloneOptions.MaskMode.FILTER;
+                it.remove();
+                if (!it.hasNext())
+                    throw new BadFormatException("Filter mode requires a material to copy");
+                else {
+                    arg = it.next();
+                    filterMaterial = parseMaterialAndData(arg);
+                    it.remove();
+                }
+            } else if (arg.startsWith("r") && !"replace".equals(arg)) {
+                try {
+                    replaceMaterial = parseMaterialAndData(arg.substring(1));
+                    it.remove();
+                } catch (BadFormatException badFormatException) {
+                    // maybe it's for the subclass, so skip silently.
+                }
+            }
+        }
+
+        if (null == maskMode)
+            maskMode = CloneOptions.MaskMode.REPLACE;
+
+        return new CloneOptions(cloneMode, maskMode, filterMaterial, replaceMaterial);
     }
 }

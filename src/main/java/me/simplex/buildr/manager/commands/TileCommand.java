@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 pwasson
+ * Copyright 2016-2017 pwasson
  *
  * This file is part of Buildr.
  *
@@ -18,10 +18,15 @@
  */
 package me.simplex.buildr.manager.commands;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import me.simplex.buildr.Buildr;
 import me.simplex.buildr.manager.builder.TileBuilderManager;
 import me.simplex.buildr.manager.builder.TileBuilderManager.TileMode;
 import static me.simplex.buildr.manager.commands.Buildr_Manager_Command_Super.sendTo;
+import me.simplex.buildr.util.CloneOptions;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -29,25 +34,25 @@ import org.bukkit.entity.Player;
 
 
 public class TileCommand extends AbstractBuilderCommand {
+    // options should be all lower-case since we compare with the lower-cased arg.
     public static final String ROUND_UP_OPTION = "roundup";
     public static final String ROUND_DOWN_OPTION = "rounddown";
-    public static final String LOCK_X_OPTION = "lockX";
-    public static final String LOCK_Y_OPTION = "lockY";
-    public static final String LOCK_Z_OPTION = "lockZ";
+    public static final String TRIM_TO_FIT_OPTION = "fit";
+    public static final String LOCK_X_OPTION = "lockx";
+    public static final String LOCK_X_OPTION_ALIAS1 = "lockeastwest";
+    public static final String LOCK_X_OPTION_ALIAS2 = "lockew";
+    public static final String LOCK_Y_OPTION = "locky";
+    public static final String LOCK_Z_OPTION = "lockz";
+    public static final String LOCK_Z_OPTION_ALIAS1 = "locknorthsouth";
+    public static final String LOCK_Z_OPTION_ALIAS2 = "lockns";
+    public static final String MIRROR_X_OPTION = "flipx";
+    public static final String MIRROR_Z_OPTION = "flipz";
 
     public TileCommand(Buildr plugin) {
-        super(plugin, "btile", "buildr.cmd.tile", 1, 0);
+        super(plugin, "btile", "buildr.cmd.tile", 10, 0);
     }
-/* TODO maybe support options from built-in clone command:
-    "masked" (do not copy air blocks)
-    ? "filtered" (with material, only copy blocks of specified material)
 
-    TODO add option(s) to restrict axes, regardless of where you tap. For example, "noy" (no y) would lock
-        the tiling onto the same y position as the original, even if the third tap was a few blocks lower
-        then the source cuboid. "nox" and "noz" might help you to line up the end of the tiling by tapping
-        something you want it to extend to in one axis but not all of them.
-    TODO add options to flip every other row along any combination of the x, y, and/or z axes.
-*/
+
     @Override
     public boolean onCommandSelf(CommandSender sender,
             Command command,
@@ -55,34 +60,48 @@ public class TileCommand extends AbstractBuilderCommand {
             String[] args) {
         try {
             // what to do when the destination block is not a full multiple of the tile width.
-            TileMode theTileMode = TileMode.DOWN;// defualt is to "round down"
+            TileMode theTileMode = TileMode.DOWN;// default is to "trim to fit"
             boolean lockX = false;// lock grid width to 1 along X axis
             boolean lockY = false;// lock grid width to 1 along Y axis
             boolean lockZ = false;// lock grid width to 1 along Z axis
+            boolean mirrorX = false;// mirror every other tile along X axis
+            boolean mirrorZ = false;// mirror every other tile along Z asix
+            CloneOptions cloneOpts = null;
 
-            if (null != args) {
-                for (String arg : args) {
-                    if (null != arg) {
-                        if (ROUND_UP_OPTION.equalsIgnoreCase(arg)) {
-                            theTileMode = TileMode.UP;
-                        } else if (ROUND_DOWN_OPTION.equalsIgnoreCase(arg)) {
-                            theTileMode = TileMode.DOWN;
-                        } else if (LOCK_X_OPTION.equalsIgnoreCase(arg)) {
-                            lockX = true;
-                        } else if (LOCK_Y_OPTION.equalsIgnoreCase(arg)) {
-                            lockY = true;
-                        } else if (LOCK_Z_OPTION.equalsIgnoreCase(arg)) {
-                            lockZ = true;
-                        } else {
-                            sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
-                                    "unrecognized argument.");
-                            return true;
-                        }
+            if (null != args && args.length > 0) {
+                // the List from Arrays.asList doesn't support Iterator.remove, so copy it.
+                List<String> argsList = new ArrayList<String>(Arrays.asList(args));
+                cloneOpts = parseCloneOptions(argsList);// removes args it recognizes
+
+                Iterator<String> argIt = argsList.iterator();
+                while (argIt.hasNext()) {
+                    String arg = argIt.next();
+                    String argLS = arg.toLowerCase();
+                    if (ROUND_UP_OPTION.equals(argLS)) {
+                        theTileMode = TileMode.UP;
+                    } else if (ROUND_DOWN_OPTION.equals(argLS)) {
+                        theTileMode = TileMode.DOWN;
+                    } else if (TRIM_TO_FIT_OPTION.equals(argLS)) {
+                        theTileMode = TileMode.TRIM;
+                    } else if (LOCK_X_OPTION.equals(argLS) || LOCK_X_OPTION_ALIAS1.equals(argLS)
+                            || LOCK_X_OPTION_ALIAS2.equals(argLS)) {
+                        lockX = true;
+                    } else if (LOCK_Y_OPTION.equals(argLS)) {
+                        lockY = true;
+                    } else if (LOCK_Z_OPTION.equals(argLS) || LOCK_Z_OPTION_ALIAS1.equals(argLS)
+                            || LOCK_Z_OPTION_ALIAS2.equals(argLS)) {
+                        lockZ = true;
+                    } else if (MIRROR_X_OPTION.equals(argLS)) {
+                        mirrorX = true;
+                    } else if (MIRROR_Z_OPTION.equals(argLS)) {
+                        mirrorZ = true;
+                    } else {
+                        throw new BadFormatException("unrecognized argument: " + arg);
                     }
                 }
             }
 
-            cmd_tile(sender, theTileMode, lockX, lockY, lockZ);
+            cmd_tile(sender, cloneOpts, theTileMode, lockX, lockY, lockZ, mirrorX, mirrorZ);
             return true;
         } catch (BadFormatException formatX) {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.ERROR,
@@ -93,10 +112,13 @@ public class TileCommand extends AbstractBuilderCommand {
 
 
     public void cmd_tile(CommandSender sender,
+            CloneOptions cloneOpts,
             TileMode inTileMode,
             boolean inLockX,
             boolean inLockY,
-            boolean inLockZ) {
+            boolean inLockZ,
+            boolean mirrorX,
+            boolean mirrorZ) {
         if (!plugin.getConfigValue("FEATURE_BUILDER_TILE")) {
             sendTo(sender, Buildr_Manager_Command_Super.MsgType.INFO, "feature not enabled");
             return;
@@ -107,7 +129,8 @@ public class TileCommand extends AbstractBuilderCommand {
         }
 
         plugin.addStartedBuilding(
-                new TileBuilderManager((Player) sender, plugin, inTileMode, inLockX, inLockY, inLockZ));
+                new TileBuilderManager((Player) sender, plugin, cloneOpts, inTileMode, inLockX, inLockY, 
+                        inLockZ, mirrorX, mirrorZ));
 
         StringBuilder sb = new StringBuilder("Started new Tile");
         switch (inTileMode) {

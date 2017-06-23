@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 pdwasson
+ * Copyright 2016-2017 pdwasson
  *
  * This file is part of Buildr.
  *
@@ -21,7 +21,9 @@ package me.simplex.buildr.runnable.builder;
 import java.util.Map;
 import me.simplex.buildr.util.BlockLocation;
 import me.simplex.buildr.util.Buildr_Container_UndoBlock;
+import me.simplex.buildr.util.CloneOptions;
 import me.simplex.buildr.util.Cuboid;
+import me.simplex.buildr.util.MaterialAndData;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
@@ -36,6 +38,7 @@ import org.bukkit.material.Door;
 import org.bukkit.material.Ladder;
 import org.bukkit.material.MaterialData;
 import org.bukkit.material.Stairs;
+import org.bukkit.material.Tree;
 
 
 /**
@@ -48,52 +51,91 @@ public abstract class AbstractCloningBuilderTask extends Buildr_Runnable_Builder
     public AbstractCloningBuilderTask(boolean inCanBreakBedrock) {
         this.canBreakBedrock = inCanBreakBedrock;
     }
-
+/*
+    TODO support maskMode as per built-in clone command:
+        * filtered: only copy a specified material.
+        * masked: copy only non-air blocks.
+        * replace: (Default) copy and replace everything.
+    TODO support cloneMode as per built-in clone command:
+        * force: allow even if source and dest cuboids overlap.
+        * move: Clone the source region to the destination region, then replace the source region with air.
+            When used in filtered mask mode, only the cloned blocks will be replaced with air.
+        * normal: (Default) Don't move or force.
+*/
 
     protected void cloneLoop(Cuboid source,
             Cuboid dest,
-            int rotation,
             World theWorld,
             Map<Block, Buildr_Container_UndoBlock> undoBlocks,
+            CloneOptions cloneOpts,
+            int rotation,
+            boolean mirrorX,
+            boolean mirrorZ,
             boolean copyAttachables) {
         for (int srcX = source.getLowCorner().getX(); srcX <= source.getHighCorner().getX(); ++srcX) {
             for (int srcZ = source.getLowCorner().getZ(); srcZ <= source.getHighCorner().getZ(); ++srcZ) {
-                BlockLocation destLoc = calcDest(source, dest, srcX, srcZ, rotation);
+                BlockLocation destLoc = calcDest(source, dest, srcX, srcZ, rotation, mirrorX, mirrorZ);
                 int yOffset = dest.getLowCorner().getY() - source.getLowCorner().getY();
                 for (int srcY = source.getLowCorner().getY(); srcY <= source.getHighCorner().getY(); ++srcY) {
                     int destY = srcY + yOffset;
                     Block srcBlockHandle = theWorld.getBlockAt(srcX, srcY, srcZ);
+                    Block destBlockHandle = theWorld.getBlockAt(destLoc.getX(), destY, destLoc.getZ());
+                    
+                    boolean forceToAir = false;
                     boolean isAttachable = Attachable.class.isAssignableFrom(srcBlockHandle.getType().
                             getData());
-                    if (copyAttachables != isAttachable) continue;
-                    /* TODO if we are filtering by material or only cloning non-air blocks, this is where we'd
-                    check and skip this iteration if it doesn't pass the filter.
-                     */
-                    Block destBlockHandle = theWorld.getBlockAt(destLoc.getX(), destY, destLoc.getZ());
-                    cloneBlock(srcBlockHandle, destBlockHandle, rotation, undoBlocks);
+
+                    if (isPartOfBedOrDoor(srcBlockHandle) && !copyAttachables) {
+                        forceToAir = true;
+                    }
+
+                    if (!forceToAir && (copyAttachables != isAttachable)) continue;
+                    cloneBlock(srcBlockHandle, destBlockHandle, cloneOpts, rotation, undoBlocks, forceToAir);
                 }
             }
         }
+    }
+    
+    private boolean isPartOfBedOrDoor(Block srcBlockHandle) {
+        Material itsType = srcBlockHandle.getType();
+        return (itsType.equals(Material.WOODEN_DOOR)
+                || itsType.equals(Material.WOOD_DOOR)
+                || itsType.equals(Material.IRON_DOOR)
+                || itsType.equals(Material.BED));
     }
 
 
     /**
      * calculates the destination X and Z coordinates based on the source and destination cuboids, the
      * source X, source Z, and rotation angle. (The destination Y is always set to 0.)
-     * @param src
-     * @param dest
-     * @param srcX
-     * @param srcZ
+     * @param src the cuboid that is the source of the cloning operaton.
+     * @param dest the cuboid that is the destination of the cloning operation, already rotated if the
+     * source is not square and rotation is not 0.
+     * @param srcX the X coordinate of the block in the source cuboid being cloned.
+     * @param srcZ the Z coordinate of the block in the source cuboid being cloned.
      * @param rotation how many degrees to rotate the object about the Y axis, in multiples of 90.
-     * @return
+     * @param mirrorX whether to mirror <i>along</i> the X axis, i.e. to flip the X coordinates.
+     * @param mirrorZ whether to mirror <i>along</i> the Z axis, i.e. to flip the Z coordinates.
+     * @return the BlockLocation in the destination cuboid that corresponds to the specified source location.
      */
     protected static BlockLocation calcDest(Cuboid src,
             Cuboid dest,
             int srcX,
             int srcZ,
-            int rotation) {
-        int offsetX = srcX - src.getLowCorner().getX();
-        int offsetZ = srcZ - src.getLowCorner().getZ();
+            int rotation,
+            boolean mirrorX,
+            boolean mirrorZ) {
+        int offsetX;
+        if (mirrorX)
+            offsetX = src.getHighCorner().getX() - srcX;
+        else
+            offsetX = srcX - src.getLowCorner().getX();
+        int offsetZ;
+        if (mirrorZ)
+            offsetZ = src.getHighCorner().getZ() - srcZ;
+        else
+            offsetZ = srcZ - src.getLowCorner().getZ();
+
         int destX;
         int destZ;
         switch (rotation) {
@@ -126,14 +168,43 @@ public abstract class AbstractCloningBuilderTask extends Buildr_Runnable_Builder
 
     protected void cloneBlock(Block srcBlockHandle,
             Block destBlockHandle,
+            CloneOptions cloneOpts,
             int rotation,
-            Map<Block, Buildr_Container_UndoBlock> undo) {
+            Map<Block, Buildr_Container_UndoBlock> undo,
+            boolean forceToAir) {
         if (canBuild(player, destBlockHandle)) {
             if (canBreakBedrock || !destBlockHandle.getType().equals(Material.BEDROCK)) {
+                /* if we are filtering by material or only cloning non-air blocks, 
+                 * this is where we check and skip this block if it doesn't pass the filter.
+                 */
+                if (null != cloneOpts) {
+                    if (CloneOptions.MaskMode.MASK.equals(cloneOpts.getMaskMode())) {
+                        // skip out if source is AIR
+                        if (Material.AIR.equals(srcBlockHandle.getType()))
+                            return;
+                    } else if (CloneOptions.MaskMode.FILTER.equals(cloneOpts.getMaskMode())) {
+                        // skip out if source is not cloneOpts.filterMaterial
+                        if (!blockMatchesMaterialAndData(srcBlockHandle, cloneOpts.getFilterMaterial()))
+                            return;
+                    }
+                    if (null != cloneOpts.getReplaceMaterial()) {
+                        // skip out if dest is not cloneOpts.replaceMaterial
+                        if (!blockMatchesMaterialAndData(destBlockHandle, cloneOpts.getReplaceMaterial()))
+                            return;
+                    }
+                }
+
                 undo.put(destBlockHandle,
                         new Buildr_Container_UndoBlock(destBlockHandle.getType(), destBlockHandle.getData()));
+                
+                if (forceToAir) {
+                    destBlockHandle.setType(Material.AIR);
+                    return;
+                }
+                
                 Material mat = srcBlockHandle.getType();
                 byte blockData = srcBlockHandle.getData();
+
                 if (0 != rotation && Directional.class.isAssignableFrom(mat.getData())) {
                     MaterialData newData = mat.getNewData(blockData);
                     Directional newDataAsDirectional = (Directional) newData;
@@ -145,6 +216,22 @@ public abstract class AbstractCloningBuilderTask extends Buildr_Runnable_Builder
                     //plugin.getLogger().info(String.format("\tSet Data: %s", getActualFacing(newDataAsDirectional)));
                     blockData = newData.getData();
                     //plugin.getLogger().info(String.format("\tAfter: %s", getActualFacing((Directional)mat.getNewData(destBlockHandle.getData()))));
+                } else if ((90 == rotation || 270 == rotation) && Tree.class.isAssignableFrom(mat.getClass())) {
+                    // bits 2 & 3 of data are log orientation: 0=up/down, 0x04=east/west, 0x08=north/south, 0x0C=bark only
+                    MaterialData newData = mat.getNewData(blockData);
+                    byte orientation = (byte)(newData.getData() & 0x0C);
+                    if (orientation == 4)
+                        orientation = 8;
+                    else if (orientation == 8)
+                        orientation = 4;
+                    blockData = (byte)((newData.getData() & 0xF3) | orientation);
+                } else if (Door.class.isAssignableFrom(mat.getClass())) {
+                    Door door = (Door)mat.getNewData(blockData);
+
+                    // TODO if other half of door is not being cloned, skip it (return).
+                    if (rotation != 0) {
+                        // TODO fix door rotation
+                    }
                 }
                 destBlockHandle.setTypeIdAndData(mat.getId(), blockData, true);
                 BlockState srcState = srcBlockHandle.getState();
@@ -279,5 +366,21 @@ public abstract class AbstractCloningBuilderTask extends Buildr_Runnable_Builder
         } else {
             dataAsDirectional.setFacingDirection(newFacing);
         }
+    }
+
+
+    private boolean blockMatchesMaterialAndData(Block h,
+            MaterialAndData mad) {
+        if (!h.getType().equals(mad.getMaterial()))
+            return false;
+
+        if (null != mad.getData()) {
+            // this is probably insufficient, but I don't want to have to test each
+            // MaterialData type separately in order to separate e.g. wood species from rotation.
+            if (!h.getState().getData().equals(mad.getData()))
+                return false;
+        }
+
+        return true;
     }
 }

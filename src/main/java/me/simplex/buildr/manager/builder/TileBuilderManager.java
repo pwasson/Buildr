@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 pdwasson
+ * Copyright 2016-2017 pdwasson
  *
  * This file is part of Buildr.
  *
@@ -20,6 +20,7 @@ package me.simplex.buildr.manager.builder;
 
 import me.simplex.buildr.Buildr;
 import me.simplex.buildr.runnable.builder.TileBuilderTask;
+import me.simplex.buildr.util.CloneOptions;
 import me.simplex.buildr.util.Cuboid;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -39,10 +40,13 @@ public class TileBuilderManager extends AbstractBuilderManager {
     private static final String COORD_FAIL_MESSAGE_TOO_SMALL = "The destination is too near the source for any tiles to be cloned.";
     private static final String COORD_FAIL_MESSAGE_OVERLAP = "The destination is within the source. Tiling stopped.";
 
+    private final CloneOptions cloneOpts;
     private final TileMode tileMode;
     private final boolean lockX;
     private final boolean lockY;
     private final boolean lockZ;
+    private final boolean mirrorX;
+    private final boolean mirrorZ;
 
     private CoordFail coordReason = null;
     private int nx = 0, ny = 0, nz = 0;
@@ -50,15 +54,21 @@ public class TileBuilderManager extends AbstractBuilderManager {
     public TileBuilderManager(
             Player inPlayer,
             Buildr inPlugin,
+            CloneOptions cloneOpts,
             TileMode inTileMode,
             boolean inLockX,
             boolean inLockY,
-            boolean inLockZ) {
+            boolean inLockZ,
+            boolean inMirrorX,
+            boolean inMirrorZ) {
         super("Tile", inPlugin, inPlayer, null, (byte)0, null);
+        this.cloneOpts = cloneOpts;
         this.tileMode = inTileMode;
         this.lockX = inLockX;
         this.lockY = inLockY;
         this.lockZ = inLockZ;
+        this.mirrorX = inMirrorX;
+        this.mirrorZ = inMirrorZ;
     }
 
 
@@ -175,21 +185,21 @@ public class TileBuilderManager extends AbstractBuilderManager {
                     rz = dz % sourceDepth;
                     nz = (dz / sourceDepth) + 1;
                 }
-plugin.getLogger().info(String.format("[dx: %d, nx: %d, rx: %d]; [dy: %d, ny: %d, ry: %d]; [dz: %d, nz: %d, rz: %d]",
-        dx, nx, rx, dy, ny, ry, dz, nz, rz));
+//plugin.getLogger().info(String.format("[dx: %d, nx: %d, rx: %d]; [dy: %d, ny: %d, ry: %d]; [dz: %d, nz: %d, rz: %d]",
+//        dx, nx, rx, dy, ny, ry, dz, nz, rz));
 
                 if (tileMode == TileMode.UP) {
                     if (rx > 0) {
                         nx += 1;
-plugin.getLogger().info(String.format("Rounding nx up to %d", nx));
+//plugin.getLogger().info(String.format("Rounding nx up to %d", nx));
                     }
                     if (ry > 0) {
                         ny += 1;
-plugin.getLogger().info(String.format("Rounding ny up to %d", ny));
+//plugin.getLogger().info(String.format("Rounding ny up to %d", ny));
                     }
                     if (rz > 0) {
                         nz += 1;
-plugin.getLogger().info(String.format("Rounding nz up to %d", nz));
+//plugin.getLogger().info(String.format("Rounding nz up to %d", nz));
                     }
                 }
 
@@ -209,12 +219,11 @@ plugin.getLogger().info(String.format("Rounding nz up to %d", nz));
                     return false;
                 }
 
-                // FIXME remove debugging log messages
-plugin.getLogger().info(String.format("Source: [%d, %d, %d] - [%d, %d, %d]",
-        source.getLowCorner().getX(), source.getLowCorner().getY(), source.getLowCorner().getZ(),
-        source.getHighCorner().getX(), source.getHighCorner().getY(), source.getHighCorner().getZ()));
+//plugin.getLogger().info(String.format("Source: [%d, %d, %d] - [%d, %d, %d]",
+//        source.getLowCorner().getX(), source.getLowCorner().getY(), source.getLowCorner().getZ(),
+//        source.getHighCorner().getX(), source.getHighCorner().getY(), source.getHighCorner().getZ()));
 
-plugin.getLogger().info(String.format("nTiles: %d, %d, %d", nx, ny, nz));
+//plugin.getLogger().info(String.format("nTiles: %d, %d, %d", nx, ny, nz));
             }
         }
 
@@ -241,6 +250,6 @@ plugin.getLogger().info(String.format("nTiles: %d, %d, %d", nx, ny, nz));
     public void startBuild() {
         plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin,
                 new TileBuilderTask(plugin, creator, getPosition(1), getPosition(2),
-                        getPosition(3), nx, ny, nz));
+                        getPosition(3), nx, ny, nz, cloneOpts, mirrorX, mirrorZ));
     }
 }

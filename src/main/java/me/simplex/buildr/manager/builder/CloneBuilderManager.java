@@ -22,6 +22,7 @@ package me.simplex.buildr.manager.builder;
 import me.simplex.buildr.Buildr;
 import me.simplex.buildr.runnable.builder.CloneBuilderTask;
 import me.simplex.buildr.util.BlockLocation;
+import me.simplex.buildr.util.CloneOptions;
 import me.simplex.buildr.util.Cuboid;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -36,14 +37,17 @@ public class CloneBuilderManager extends AbstractBuilderManager {
     private static final String COORD_FAIL_MESSAGE_OVERLAP = "The source and destination areas overlap, which would cause indeterminate results. Cloning stopped.";
 
     private final int rotationAngle;
+    private final CloneOptions cloneOpts;
 
     private CoordFail coordReason = null;
 
     public CloneBuilderManager(
             Player inPlayer,
             Buildr inPlugin,
+            CloneOptions cloneOpts,
             int inRotationAngle) {
         super("Clone", inPlugin, inPlayer, null, (byte)0, null);
+        this.cloneOpts = cloneOpts;
         this.rotationAngle = inRotationAngle;
     }
 
@@ -172,6 +176,6 @@ public class CloneBuilderManager extends AbstractBuilderManager {
     public void startBuild() {
         plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin,
                 new CloneBuilderTask(plugin, creator, getPosition(1), getPosition(2), getPosition(3),
-                        rotationAngle));
+                        cloneOpts, rotationAngle));
     }
 }

@@ -46,7 +46,7 @@ public class Buildr_Manager_Command_Airfloor extends Buildr_Manager_Command_Supe
 				}
 				try {
 					int material=0,height=0,size=0;
-					if (args.length > 3 && args.length < 2) {
+					if (args.length > 3 || args.length < 2) {
 						return false;
 					}
 					if (args.length == 3) {
